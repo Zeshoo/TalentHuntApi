@@ -232,11 +232,12 @@ namespace TalentHunt1.Controllers
             {
                 using (var db = new Talent_HuntEntities5())
                 {
-                    // Join Submission -> Users -> Task -> Event
                     var submissions = (from s in db.Submission
                                        join u in db.Users on s.UserID equals u.Id
                                        join t in db.Task on s.TaskID equals t.Id
                                        join e in db.Event on t.EventID equals e.Id
+                                       join m in db.Marks on s.Id equals m.SubmissionID into marksGroup
+                                       from m in marksGroup.DefaultIfEmpty()
                                        where s.TaskID == taskId
                                        select new
                                        {
@@ -247,7 +248,8 @@ namespace TalentHunt1.Controllers
                                            s.SubmissionTime,
                                            s.PathofSubmission,
                                            EventTitle = e.Title,
-                                           Details=t.Description
+                                           Details = t.Description,
+                                           Marks = m != null ? m.Marks1 : (int?)null  // 👈 Use actual property name here
                                        }).ToList();
 
                     if (submissions == null || submissions.Count == 0)
@@ -263,6 +265,7 @@ namespace TalentHunt1.Controllers
                 return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, ex.Message);
             }
         }
+
 
 
 
@@ -1016,23 +1019,48 @@ namespace TalentHunt1.Controllers
         {
             try
             {
-                var eventDetails = db.Event.Where(e => e.Id == eventId)
-                                           .Select(e => new
-                                           {
-                                               e.Title,
-                                               e.EventDate,
-                                               ParticipantCount = db.Apply.Count(a => a.EventId == e.Id),
-                                               Topper = db.Marks.Where(m => m.SubmissionID == e.Id)
-                                                                .OrderByDescending(m => m.Marks1)
-                                                                .FirstOrDefault()
-                                           }).FirstOrDefault();
-                return Request.CreateResponse(HttpStatusCode.OK, eventDetails);
+                var eventReport = (from e in db.Event
+                                   where e.Id == eventId
+                                   select new
+                                   {
+                                       e.Title,
+                                       e.EventDate,
+                                       ParticipantCount = db.Apply.Count(a => a.EventId == e.Id),
+
+                                       Submissions = (from s in db.Submission
+                                                      join t in db.Task on s.TaskID equals t.Id
+                                                      join u in db.Users on s.UserID equals u.Id
+                                                      join m in db.Marks on s.Id equals m.SubmissionID into marksGroup
+                                                      from m in marksGroup.DefaultIfEmpty()
+                                                      where t.EventID == e.Id
+                                                      orderby (m != null ? m.Marks1 : 0) descending
+                                                      select new
+                                                      {
+                                                          StudentName = u.Name,
+                                                          s.SubmissionTime,
+                                                          s.PathofSubmission,
+                                                          Marks = m != null ? m.Marks1 : (int?)null
+                                                      }).ToList()
+                                   }).FirstOrDefault();
+
+                if (eventReport == null)
+                {
+                    return Request.CreateResponse(HttpStatusCode.NotFound, "Event not found.");
+                }
+
+                return Request.CreateResponse(HttpStatusCode.OK, eventReport);
             }
             catch (Exception ex)
             {
                 return Request.CreateResponse(HttpStatusCode.InternalServerError, ex.Message);
             }
         }
+
+
+
+
+
+
         [HttpGet]
         public HttpResponseMessage SearchApply(int id)
         {
@@ -1620,6 +1648,30 @@ namespace TalentHunt1.Controllers
             catch (Exception ex)
             {
                 return Request.CreateResponse(HttpStatusCode.InternalServerError, "An error occurred: " + ex.Message);
+            }
+        }
+
+        [HttpPost]
+     
+        public HttpResponseMessage AddMarks(int SubmissionID, int CommitteeMemberID, int Marks)
+        {
+            try
+            {
+                var mark = new Marks
+                {
+                    SubmissionID = SubmissionID,
+                    CommitteeMemberID = CommitteeMemberID,
+                    Marks1 = Marks
+                };
+
+                db.Marks.Add(mark);
+                db.SaveChanges();
+
+                return Request.CreateResponse(HttpStatusCode.Created, "Marks added successfully.");
+            }
+            catch (Exception ex)
+            {
+                return Request.CreateResponse(HttpStatusCode.InternalServerError, "Error: " + ex.Message);
             }
         }
 
