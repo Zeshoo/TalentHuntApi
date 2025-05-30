@@ -1623,6 +1623,30 @@ namespace TalentHunt1.Controllers
             }
         }
 
+        [HttpPost]
+     
+        public HttpResponseMessage AddMarks(int SubmissionID, int CommitteeMemberID, int Marks)
+        {
+            try
+            {
+                var mark = new Marks
+                {
+                    SubmissionID = SubmissionID,
+                    CommitteeMemberID = CommitteeMemberID,
+                    Marks1 = Marks
+                };
+
+                db.Marks.Add(mark);
+                db.SaveChanges();
+
+                return Request.CreateResponse(HttpStatusCode.Created, "Marks added successfully.");
+            }
+            catch (Exception ex)
+            {
+                return Request.CreateResponse(HttpStatusCode.InternalServerError, "Error: " + ex.Message);
+            }
+        }
+
 
         [HttpPost]
         [Route("api/Main/UpdateApplicationStatus")]
