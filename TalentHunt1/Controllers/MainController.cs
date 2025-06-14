@@ -241,7 +241,7 @@ namespace TalentHunt1.Controllers
                                        where s.TaskID == taskId
                                        select new
                                        {
-                                           s.Id,
+                                           SubmissionID =s.Id,
                                            s.TaskID,
                                            s.UserID,
                                            UserName = u.Name,
@@ -1734,6 +1734,42 @@ namespace TalentHunt1.Controllers
                 return Request.CreateResponse(HttpStatusCode.InternalServerError, "An error occurred: " + ex.Message);
             }
         }
+        [HttpGet]
+   
+        public HttpResponseMessage LeaderBoard()
+        {
+            try
+            {
+                var result = db.Event
+                    .Select(e => new
+                    {
+                        EventId = e.Id,
+                        EventTitle = e.Title,
+                        TopThreeToppers = (
+                            from s in db.Submission
+                            join t in db.Task on s.TaskID equals t.Id
+                            join u in db.Users on s.UserID equals u.Id
+                            join m in db.Marks on s.Id equals m.SubmissionID
+                            where t.EventID == e.Id
+                            orderby m.Marks1 descending,
+                                    s.SubmissionTime ascending  // 👈 tie-breaker: earlier submission wins
+                            select new
+                            {
+                                StudentName = u.Name,
+                                Marks = m.Marks1,
+                                SubmissionTime = s.SubmissionTime
+                            }
+                        ).Take(3).ToList()
+                    }).ToList();
+
+                return Request.CreateResponse(HttpStatusCode.OK, result);
+            }
+            catch (Exception ex)
+            {
+                return Request.CreateResponse(HttpStatusCode.InternalServerError, ex.Message);
+            }
+        }
+
 
 
 
