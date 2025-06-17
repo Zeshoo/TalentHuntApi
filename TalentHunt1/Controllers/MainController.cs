@@ -1027,20 +1027,26 @@ namespace TalentHunt1.Controllers
                                        e.EventDate,
                                        ParticipantCount = db.Apply.Count(a => a.EventId == e.Id),
 
-                                       Submissions = (from s in db.Submission
-                                                      join t in db.Task on s.TaskID equals t.Id
-                                                      join u in db.Users on s.UserID equals u.Id
-                                                      join m in db.Marks on s.Id equals m.SubmissionID into marksGroup
-                                                      from m in marksGroup.DefaultIfEmpty()
-                                                      where t.EventID == e.Id
-                                                      orderby (m != null ? m.Marks1 : 0) descending
-                                                      select new
-                                                      {
-                                                          StudentName = u.Name,
-                                                          s.SubmissionTime,
-                                                          s.PathofSubmission,
-                                                          Marks = m != null ? m.Marks1 : (int?)null
-                                                      }).ToList()
+                                       Submissions = (
+                                           from s in db.Submission
+                                           join t in db.Task on s.TaskID equals t.Id
+                                           join u in db.Users on s.UserID equals u.Id
+                                           join m in db.Marks on s.Id equals m.SubmissionID
+                                           where t.EventID == e.Id
+                                           group new { s, u, m } by new { u.Id, u.Name } into g
+                                           let best = g
+                                               .OrderByDescending(x => x.m.Marks1)
+                                               .ThenBy(x => x.s.SubmissionTime)
+                                               .FirstOrDefault()
+                                           orderby best.m.Marks1 descending
+                                           select new
+                                           {
+                                               StudentName = best.u.Name,
+                                               best.s.SubmissionTime,
+                                               best.s.PathofSubmission,
+                                               Marks = best.m.Marks1
+                                           }
+                                       ).ToList()
                                    }).FirstOrDefault();
 
                 if (eventReport == null)
@@ -1055,8 +1061,6 @@ namespace TalentHunt1.Controllers
                 return Request.CreateResponse(HttpStatusCode.InternalServerError, ex.Message);
             }
         }
-
-
 
 
 
@@ -1735,7 +1739,6 @@ namespace TalentHunt1.Controllers
             }
         }
         [HttpGet]
-   
         public HttpResponseMessage LeaderBoard()
         {
             try
@@ -1745,19 +1748,21 @@ namespace TalentHunt1.Controllers
                     {
                         EventId = e.Id,
                         EventTitle = e.Title,
+
                         TopThreeToppers = (
                             from s in db.Submission
                             join t in db.Task on s.TaskID equals t.Id
                             join u in db.Users on s.UserID equals u.Id
                             join m in db.Marks on s.Id equals m.SubmissionID
                             where t.EventID == e.Id
-                            orderby m.Marks1 descending,
-                                    s.SubmissionTime ascending  // 👈 tie-breaker: earlier submission wins
+                            group new { s, u, m } by new { u.Id, u.Name } into g
+                            let best = g.OrderByDescending(x => x.m.Marks1).ThenBy(x => x.s.SubmissionTime).FirstOrDefault()
+                            orderby best.m.Marks1 descending, best.s.SubmissionTime ascending
                             select new
                             {
-                                StudentName = u.Name,
-                                Marks = m.Marks1,
-                                SubmissionTime = s.SubmissionTime
+                                StudentName = best.u.Name,
+                                Marks = best.m.Marks1,
+                                SubmissionTime = best.s.SubmissionTime
                             }
                         ).Take(3).ToList()
                     }).ToList();
@@ -1769,6 +1774,7 @@ namespace TalentHunt1.Controllers
                 return Request.CreateResponse(HttpStatusCode.InternalServerError, ex.Message);
             }
         }
+
 
 
 
