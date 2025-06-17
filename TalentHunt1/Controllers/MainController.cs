@@ -236,28 +236,50 @@ namespace TalentHunt1.Controllers
                                        join u in db.Users on s.UserID equals u.Id
                                        join t in db.Task on s.TaskID equals t.Id
                                        join e in db.Event on t.EventID equals e.Id
-                                       join m in db.Marks on s.Id equals m.SubmissionID into marksGroup
-                                       from m in marksGroup.DefaultIfEmpty()
                                        where s.TaskID == taskId
                                        select new
                                        {
-                                           SubmissionID =s.Id,
+                                           SubmissionID = s.Id,
                                            s.TaskID,
                                            s.UserID,
-                                           UserName = u.Name,
+                                           StudentName = u.Name,
                                            s.SubmissionTime,
                                            s.PathofSubmission,
                                            EventTitle = e.Title,
-                                           Details = t.Description,
-                                           Marks = m != null ? m.Marks1 : (int?)null  // 👈 Use actual property name here
+                                           TaskDescription = t.Description,
+
+                                           // Grouped and distinct marks by committee member
+                                           MarksList = (from m in db.Marks
+                                                        join cm in db.Users on m.CommitteeMemberID equals cm.Id
+                                                        where m.SubmissionID == s.Id
+                                                        group new { m, cm } by m.CommitteeMemberID into grp
+                                                        select new
+                                                        {
+                                                            Marks1 = grp.Max(x => x.m.Marks1), // Highest mark per committee member
+                                                            CommitteeMemberName = grp.FirstOrDefault().cm.Name
+                                                        }).ToList()
                                        }).ToList();
 
-                    if (submissions == null || submissions.Count == 0)
+                    var finalResult = submissions.Select(sub => new
                     {
-                        return Request.CreateResponse(HttpStatusCode.NotFound, "No submissions found for the given Task ID.");
-                    }
+                        sub.SubmissionID,
+                        sub.TaskID,
+                        sub.UserID,
+                        sub.StudentName,
+                        sub.SubmissionTime,
+                        sub.PathofSubmission,
+                        sub.EventTitle,
+                        sub.TaskDescription,
 
-                    return Request.CreateResponse(HttpStatusCode.OK, submissions);
+                        // Highest mark overall and who gave it
+                        HighestMarks = sub.MarksList.OrderByDescending(m => m.Marks1).FirstOrDefault()?.Marks1,
+                        HighestBy = sub.MarksList.OrderByDescending(m => m.Marks1).FirstOrDefault()?.CommitteeMemberName,
+
+                        // All committee members who marked this submission (no duplicate names now)
+                        AllMarks = sub.MarksList
+                    }).ToList();
+
+                    return Request.CreateResponse(HttpStatusCode.OK, finalResult);
                 }
             }
             catch (Exception ex)
@@ -265,6 +287,8 @@ namespace TalentHunt1.Controllers
                 return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, ex.Message);
             }
         }
+
+
 
 
 
