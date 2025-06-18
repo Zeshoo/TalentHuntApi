@@ -290,6 +290,35 @@ namespace TalentHunt1.Controllers
 
 
 
+        [HttpGet]
+        public HttpResponseMessage GetUserMarksByEvent(int userId)
+        {
+            try
+            {
+                using (var db = new Talent_HuntEntities5())
+                {
+                    var results = (from a in db.Apply
+                                   where a.UserId == userId
+                                   join e in db.Event on a.EventId equals e.Id
+                                   join t in db.Task on e.Id equals t.EventID
+                                   join s in db.Submission on t.Id equals s.TaskID
+                                   where s.UserID == userId
+                                   join m in db.Marks on s.Id equals m.SubmissionID into markJoin
+                                   from mark in markJoin.DefaultIfEmpty()
+                                   select new
+                                   {
+                                       EventTitle = e.Title,
+                                       Marks = mark != null ? mark.Marks1 : (int?)null
+                                   }).ToList();
+
+                    return Request.CreateResponse(HttpStatusCode.OK, results);
+                }
+            }
+            catch (Exception ex)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, "Failed to fetch user marks.", ex);
+            }
+        }
 
 
 
