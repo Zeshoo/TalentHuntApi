@@ -416,6 +416,28 @@ namespace TalentHunt1.Controllers
                 return Request.CreateResponse(HttpStatusCode.NotFound);
             }
         }
+        public class TaskDeleteRequest
+        {
+            public int taskid { get; set; }
+        }
+        [HttpPost]
+        public HttpResponseMessage DeleteTask(TaskDeleteRequest taskid)
+        {
+            try
+            {
+                var task = db.Task.Find(taskid.taskid); // 🔧 Fixed here
+                if (task == null)
+                    return Request.CreateResponse(HttpStatusCode.NotFound, "Task not found");
+
+                db.Task.Remove(task);
+                db.SaveChanges();
+                return Request.CreateResponse(HttpStatusCode.OK, "Task deleted successfully");
+            }
+            catch (Exception ex)
+            {
+                return Request.CreateResponse(HttpStatusCode.InternalServerError, "Error: " + ex.Message);
+            }
+        }
 
 
         [HttpGet]
