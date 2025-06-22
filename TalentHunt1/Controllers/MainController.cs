@@ -303,13 +303,26 @@ namespace TalentHunt1.Controllers
                                    join t in db.Task on e.Id equals t.EventID
                                    join s in db.Submission on t.Id equals s.TaskID
                                    where s.UserID == userId
+                                   join u in db.Users on a.UserId equals u.Id
                                    join m in db.Marks on s.Id equals m.SubmissionID into markJoin
                                    from mark in markJoin.DefaultIfEmpty()
                                    select new
                                    {
+                                       EventId = e.Id,
                                        EventTitle = e.Title,
-                                       Marks = mark != null ? mark.Marks1 : (int?)null
-                                   }).ToList();
+                                       EventPic = e.Image,
+                                       UserName = u.Name,
+                                       Marks = mark != null ? mark.Marks1 : (double?)null
+                                   })
+                                   .GroupBy(x => new { x.EventId, x.EventTitle, x.EventPic, x.UserName })
+                                   .Select(g => new
+                                   {
+                                       EventTitle = g.Key.EventTitle,
+                                       EventPic = g.Key.EventPic,
+                                       UserName = g.Key.UserName,
+                                       Marks = g.Average(x => x.Marks)
+                                   })
+                                   .ToList();
 
                     return Request.CreateResponse(HttpStatusCode.OK, results);
                 }
@@ -319,6 +332,7 @@ namespace TalentHunt1.Controllers
                 return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, "Failed to fetch user marks.", ex);
             }
         }
+
 
 
 
@@ -1108,18 +1122,29 @@ namespace TalentHunt1.Controllers
                                            join u in db.Users on s.UserID equals u.Id
                                            join m in db.Marks on s.Id equals m.SubmissionID
                                            where t.EventID == e.Id
-                                           group new { s, u, m } by new { u.Id, u.Name } into g
-                                           let best = g
-                                               .OrderByDescending(x => x.m.Marks1)
-                                               .ThenBy(x => x.s.SubmissionTime)
-                                               .FirstOrDefault()
-                                           orderby best.m.Marks1 descending
+
+                                           // Group by student
+                                           group new { s, u, m } by new { u.Id, u.Name } into studentGroup
+
+                                           // Now within each student, group marks by EvaluatorId and take highest per evaluator
+                                           let evaluatorMarks = studentGroup
+                                               .GroupBy(x => x.m.CommitteeMemberID)
+                                               .Select(g => g.Max(x => x.m.Marks1)) // take max mark per evaluator
+
+                                           let avgMarks = evaluatorMarks.Average()
+                                           let committeeCount = evaluatorMarks.Count()
+
+                                           let firstSubmission = studentGroup.OrderBy(x => x.s.SubmissionTime).FirstOrDefault()
+
+                                           orderby avgMarks descending
+
                                            select new
                                            {
-                                               StudentName = best.u.Name,
-                                               best.s.SubmissionTime,
-                                               best.s.PathofSubmission,
-                                               Marks = best.m.Marks1
+                                               StudentName = studentGroup.Key.Name,
+                                               CommitteeEvaluators = committeeCount,
+                                               AverageMarks = avgMarks,
+                                               SubmissionTime = firstSubmission.s.SubmissionTime,
+                                               PathofSubmission = firstSubmission.s.PathofSubmission
                                            }
                                        ).ToList()
                                    }).FirstOrDefault();
@@ -1136,6 +1161,7 @@ namespace TalentHunt1.Controllers
                 return Request.CreateResponse(HttpStatusCode.InternalServerError, ex.Message);
             }
         }
+
 
 
 
@@ -1830,14 +1856,13 @@ namespace TalentHunt1.Controllers
                             join u in db.Users on s.UserID equals u.Id
                             join m in db.Marks on s.Id equals m.SubmissionID
                             where t.EventID == e.Id
-                            group new { s, u, m } by new { u.Id, u.Name } into g
-                            let best = g.OrderByDescending(x => x.m.Marks1).ThenBy(x => x.s.SubmissionTime).FirstOrDefault()
-                            orderby best.m.Marks1 descending, best.s.SubmissionTime ascending
+                            group m by new { u.Id, u.Name, t.EventID } into g
+                            let averageMarks = g.Average(x => x.Marks1)
+                            orderby averageMarks descending
                             select new
                             {
-                                StudentName = best.u.Name,
-                                Marks = best.m.Marks1,
-                                SubmissionTime = best.s.SubmissionTime
+                                StudentName = g.Key.Name,
+                                AverageMarks = averageMarks
                             }
                         ).Take(3).ToList()
                     }).ToList();
