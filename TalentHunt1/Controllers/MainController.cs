@@ -1162,6 +1162,68 @@ namespace TalentHunt1.Controllers
             }
         }
 
+        [HttpGet]
+        public HttpResponseMessage GetUserMarks(int userId)
+        {
+            try
+            {
+                // Step 1: Get student info
+                var user = db.Users.FirstOrDefault(u => u.Id == userId);
+                if (user == null)
+                {
+                    return Request.CreateResponse(HttpStatusCode.NotFound, "User not found.");
+                }
+
+                // Step 2: Get all valid marks from committee members only
+                var allMarks = (from s in db.Submission
+                                join m in db.Marks on s.Id equals m.SubmissionID
+                                join c in db.Users on m.CommitteeMemberID equals c.Id
+                                where s.UserID == userId && c.Role == "Committee"
+                                select new
+                                {
+                                    CommitteeMemberName = c.Name,
+                                    Marks = m.Marks1,
+                                    MarkId = m.Id
+                                })
+                                .Where(x => x.Marks > 0) // Ignore marks with value 0
+                                .ToList();
+
+                if (!allMarks.Any())
+                {
+                    return Request.CreateResponse(HttpStatusCode.NotFound, "No valid marks found for this user.");
+                }
+
+                // =============================
+                // 🕒 Option 1: Get latest mark (by Mark ID)
+                var selectedMark = allMarks
+                                    .OrderByDescending(m => m.MarkId)
+                                    .FirstOrDefault();
+
+                // =============================
+                // 🏆 Option 2: Get highest mark
+                // Uncomment this line to get highest instead of latest:
+                // var selectedMark = allMarks.OrderByDescending(m => m.Marks).FirstOrDefault();
+                // =============================
+
+                // Step 3: Prepare response
+                var response = new
+                {
+                    StudentName = user.Name,
+                    SelectedMark = new
+                    {
+                        CommitteeMemberName = selectedMark.CommitteeMemberName,
+                        Marks = selectedMark.Marks
+                    }
+                };
+
+                return Request.CreateResponse(HttpStatusCode.OK, response);
+            }
+            catch (Exception ex)
+            {
+                return Request.CreateResponse(HttpStatusCode.InternalServerError, ex.Message);
+            }
+        }
+
 
 
 
