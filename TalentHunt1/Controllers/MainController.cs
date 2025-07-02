@@ -20,7 +20,7 @@ namespace TalentHunt1.Controllers
 {
     public class MainController : ApiController
     {
-        Talent_HuntEntities5 db = new Talent_HuntEntities5();
+        Talent_HuntEntities6 db = new Talent_HuntEntities6();
 
         [HttpPost]
         public HttpResponseMessage AddUser(Users user)
@@ -82,10 +82,20 @@ namespace TalentHunt1.Controllers
                 }
 
                 // Set default role to Student
-                user.Role = "Student";
 
-                db.Users.Add(user);
-                db.SaveChanges();
+                if (user.Role == "Admin")
+                { 
+                    db.Users.Add(user);
+                }
+                else
+                {
+                    user.Role = "Student"; // Default role for new users
+                    db.Users.Add(user);
+                }
+
+
+                    db.SaveChanges();
+            
 
                 return Request.CreateResponse(HttpStatusCode.OK, "User registered successfully.");
             }
@@ -197,7 +207,7 @@ namespace TalentHunt1.Controllers
         {
             try
             {
-                using (var db = new Talent_HuntEntities5())
+                using (var db = new Talent_HuntEntities6())
                 {
                     var task = db.Task.FirstOrDefault(t => t.Id == id);
                     if (task == null)
@@ -230,7 +240,7 @@ namespace TalentHunt1.Controllers
         {
             try
             {
-                using (var db = new Talent_HuntEntities5())
+                using (var db = new Talent_HuntEntities6())
                 {
                     var submissions = (from s in db.Submission
                                        join u in db.Users on s.UserID equals u.Id
@@ -295,7 +305,7 @@ namespace TalentHunt1.Controllers
         {
             try
             {
-                using (var db = new Talent_HuntEntities5())
+                using (var db = new Talent_HuntEntities6())
                 {
                     var results = (from a in db.Apply
                                    where a.UserId == userId
@@ -308,15 +318,18 @@ namespace TalentHunt1.Controllers
                                    from mark in markJoin.DefaultIfEmpty()
                                    select new
                                    {
+                                       studentid=a.Id,
                                        EventId = e.Id,
                                        EventTitle = e.Title,
                                        EventPic = e.Image,
                                        UserName = u.Name,
                                        Marks = mark != null ? mark.Marks1 : (double?)null
                                    })
-                                   .GroupBy(x => new { x.EventId, x.EventTitle, x.EventPic, x.UserName })
+                                   .GroupBy(x => new {x.studentid, x.EventId, x.EventTitle, x.EventPic, x.UserName })
                                    .Select(g => new
                                    {
+                                       eventId = g.Key.EventId,
+                                       studentid =userId,
                                        EventTitle = g.Key.EventTitle,
                                        EventPic = g.Key.EventPic,
                                        UserName = g.Key.UserName,
@@ -1261,7 +1274,7 @@ namespace TalentHunt1.Controllers
         
         public HttpResponseMessage GetEventById(int eventid)
         {
-            using (var db = new Talent_HuntEntities5())
+            using (var db = new Talent_HuntEntities6())
             {
                 var ev = db.Event.FirstOrDefault(e => e.Id == eventid);
 
@@ -1364,7 +1377,7 @@ namespace TalentHunt1.Controllers
         {
             try
             {
-                using (var db = new Talent_HuntEntities5())
+                using (var db = new Talent_HuntEntities6())
                 {
                     // Step 1: Find CommitteeMemberID for the given userId
                     var committeeMember = db.CommitteeMember.FirstOrDefault(cm => cm.UserID == userId);

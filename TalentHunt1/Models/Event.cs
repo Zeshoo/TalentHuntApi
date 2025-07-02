@@ -23,5 +23,6 @@ namespace TalentHunt1.Models
         public string EventEndTime { get; set; }
         public string Details { get; set; }
         public string Image { get; set; }
+        public string CreatedByName { get; set; }
     }
 }

@@ -4,7 +4,7 @@
   <edmx:Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
     <!-- Diagram content (shape and connector positions) -->
     <edmx:Diagrams>
-      <Diagram DiagramId="62c5d72daead4d209f5b6f8a7b73d268" Name="Diagram1">
+      <Diagram DiagramId="8b4392e738a6405895de15c767b6dbc1" Name="Diagram1">
         <EntityTypeShape EntityType="Talent_HuntModel.Apply" Width="1.5" PointX="0.75" PointY="0.75" IsExpanded="true" />
         <EntityTypeShape EntityType="Talent_HuntModel.AssignedMember" Width="1.5" PointX="2.75" PointY="0.75" IsExpanded="true" />
         <EntityTypeShape EntityType="Talent_HuntModel.CommitteeMember" Width="1.5" PointX="0.75" PointY="3.75" IsExpanded="true" />

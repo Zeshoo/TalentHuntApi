@@ -46,6 +46,7 @@
           <Property Name="EventEndTime" Type="varchar" MaxLength="100" />
           <Property Name="Details" Type="varchar(max)" />
           <Property Name="Image" Type="varchar(max)" />
+          <Property Name="CreatedByName" Type="nvarchar" MaxLength="100" />
         </EntityType>
         <EntityType Name="Marks">
           <Key>
@@ -143,6 +144,7 @@
           <Property Name="EventEndTime" Type="String" MaxLength="100" FixedLength="false" Unicode="false" />
           <Property Name="Details" Type="String" MaxLength="Max" FixedLength="false" Unicode="false" />
           <Property Name="Image" Type="String" MaxLength="Max" FixedLength="false" Unicode="false" />
+          <Property Name="CreatedByName" Type="String" MaxLength="100" FixedLength="false" Unicode="true" />
         </EntityType>
         <EntityType Name="Marks">
           <Key>
@@ -184,7 +186,7 @@
           <Property Name="Password" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
           <Property Name="Role" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
         </EntityType>
-        <EntityContainer Name="Talent_HuntEntities5" annotation:LazyLoadingEnabled="true">
+        <EntityContainer Name="Talent_HuntEntities6" annotation:LazyLoadingEnabled="true">
           <EntitySet Name="Apply" EntityType="Self.Apply" />
           <EntitySet Name="AssignedMember" EntityType="Self.AssignedMember" />
           <EntitySet Name="CommitteeMember" EntityType="Self.CommitteeMember" />
@@ -199,7 +201,7 @@
     <!-- C-S mapping content -->
     <edmx:Mappings>
       <Mapping Space="C-S" xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs">
-        <EntityContainerMapping StorageEntityContainer="Talent_HuntModelStoreContainer" CdmEntityContainer="Talent_HuntEntities5">
+        <EntityContainerMapping StorageEntityContainer="Talent_HuntModelStoreContainer" CdmEntityContainer="Talent_HuntEntities6">
           <EntitySetMapping Name="Apply">
             <EntityTypeMapping TypeName="Talent_HuntModel.Apply">
               <MappingFragment StoreEntitySet="Apply">
@@ -243,6 +245,7 @@
                 <ScalarProperty Name="EventEndTime" ColumnName="EventEndTime" />
                 <ScalarProperty Name="Details" ColumnName="Details" />
                 <ScalarProperty Name="Image" ColumnName="Image" />
+                <ScalarProperty Name="CreatedByName" ColumnName="CreatedByName" />
               </MappingFragment>
             </EntityTypeMapping>
           </EntitySetMapping>
