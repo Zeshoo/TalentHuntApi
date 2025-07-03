@@ -307,45 +307,76 @@ namespace TalentHunt1.Controllers
             {
                 using (var db = new Talent_HuntEntities6())
                 {
+                    // First check if user exists
+                    var userExists = db.Users.Any(u => u.Id == userId);
+                    if (!userExists)
+                        return Request.CreateResponse(HttpStatusCode.NotFound, "User not found");
+
+                    // Get all events the user has applied to
+                    var userApplications = db.Apply
+                        .Where(a => a.UserId == userId)
+                        .Select(a => a.EventId)
+                        .ToList();
+
+                    if (!userApplications.Any())
+                        return Request.CreateResponse(HttpStatusCode.OK, "User hasn't applied to any events");
+
+                    // Main query with proper joins and null handling
                     var results = (from a in db.Apply
                                    where a.UserId == userId
                                    join e in db.Event on a.EventId equals e.Id
                                    join t in db.Task on e.Id equals t.EventID
                                    join s in db.Submission on t.Id equals s.TaskID
                                    where s.UserID == userId
-                                   join u in db.Users on a.UserId equals u.Id
-                                   join m in db.Marks on s.Id equals m.SubmissionID into markJoin
-                                   from mark in markJoin.DefaultIfEmpty()
-                                   select new
+                                   join m in db.Marks on s.Id equals m.SubmissionID into marksGroup
+                                   from mark in marksGroup.DefaultIfEmpty()
+                                   group new { e, t, mark } by new
                                    {
-                                       studentid=a.Id,
                                        EventId = e.Id,
                                        EventTitle = e.Title,
-                                       EventPic = e.Image,
-                                       UserName = u.Name,
-                                       Marks = mark != null ? mark.Marks1 : (double?)null
-                                   })
-                                   .GroupBy(x => new {x.studentid, x.EventId, x.EventTitle, x.EventPic, x.UserName })
-                                   .Select(g => new
+                                       EventImage = e.Image,
+                                       TaskId = t.Id,
+                                       TaskDescription = t.Description
+                                   } into g
+                                   select new
                                    {
-                                       eventId = g.Key.EventId,
-                                       studentid =userId,
-                                       EventTitle = g.Key.EventTitle,
-                                       EventPic = g.Key.EventPic,
-                                       UserName = g.Key.UserName,
-                                       Marks = g.Average(x => x.Marks)
-                                   })
-                                   .ToList();
+                                       g.Key.EventId,
+                                       g.Key.EventTitle,
+                                       g.Key.EventImage,
+                                       g.Key.TaskId,
+                                       g.Key.TaskDescription,
+                                       TaskAverage = g.Average(x => x.mark != null ? (double?)x.mark.Marks1 : null),
+                                       HasMarks = g.Any(x => x.mark != null)
+                                   }).ToList();
 
-                    return Request.CreateResponse(HttpStatusCode.OK, results);
+                    // Group by event and calculate overall averages
+                    var finalResult = results
+                        .GroupBy(r => new { r.EventId, r.EventTitle, r.EventImage })
+                        .Select(eg => new
+                        {
+                            EventId = eg.Key.EventId,
+                            EventTitle = eg.Key.EventTitle,
+                            EventPic = eg.Key.EventImage,
+                            TaskDetails = eg.Select(t => new
+                            {
+                                t.TaskId,
+                                t.TaskDescription,
+                                t.TaskAverage,
+                                MarksStatus = t.HasMarks ? "Available" : "Not Available"
+                            }),
+                            OverallAverage = eg.Average(t => t.TaskAverage),
+                            EventStatus = eg.Any(t => t.HasMarks) ? "Marks Available" : "No Marks Available"
+                        })
+                        .ToList();
+
+                    return Request.CreateResponse(HttpStatusCode.OK, finalResult);
                 }
             }
             catch (Exception ex)
             {
-                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, "Failed to fetch user marks.", ex);
+                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, ex.Message);
             }
         }
-
 
 
 
