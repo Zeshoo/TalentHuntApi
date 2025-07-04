@@ -13,10 +13,10 @@ namespace TalentHunt1.Models
     using System.Data.Entity;
     using System.Data.Entity.Infrastructure;
     
-    public partial class Talent_HuntEntities6 : DbContext
+    public partial class Talent_HuntEntities7 : DbContext
     {
-        public Talent_HuntEntities6()
-            : base("name=Talent_HuntEntities6")
+        public Talent_HuntEntities7()
+            : base("name=Talent_HuntEntities7")
         {
         }
     
@@ -29,6 +29,7 @@ namespace TalentHunt1.Models
         public virtual DbSet<AssignedMember> AssignedMember { get; set; }
         public virtual DbSet<CommitteeMember> CommitteeMember { get; set; }
         public virtual DbSet<Event> Event { get; set; }
+        public virtual DbSet<EventReviews> EventReviews { get; set; }
         public virtual DbSet<Marks> Marks { get; set; }
         public virtual DbSet<Submission> Submission { get; set; }
         public virtual DbSet<Task> Task { get; set; }

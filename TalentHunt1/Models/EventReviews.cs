@@ -12,12 +12,12 @@ namespace TalentHunt1.Models
     using System;
     using System.Collections.Generic;
     
-    public partial class Marks
+    public partial class EventReviews
     {
         public int Id { get; set; }
-        public Nullable<int> SubmissionID { get; set; }
-        public Nullable<int> CommitteeMemberID { get; set; }
-        public Nullable<int> Marks1 { get; set; }
-        public string Feedback { get; set; }
+        public int EventId { get; set; }
+        public int MemberId { get; set; }
+        public int StudentId { get; set; }
+        public Nullable<int> Review { get; set; }
     }
 }

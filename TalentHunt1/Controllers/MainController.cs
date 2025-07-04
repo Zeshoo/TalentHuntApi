@@ -20,7 +20,7 @@ namespace TalentHunt1.Controllers
 {
     public class MainController : ApiController
     {
-        Talent_HuntEntities6 db = new Talent_HuntEntities6();
+        Talent_HuntEntities7 db = new Talent_HuntEntities7();
 
         [HttpPost]
         public HttpResponseMessage AddUser(Users user)
@@ -207,7 +207,7 @@ namespace TalentHunt1.Controllers
         {
             try
             {
-                using (var db = new Talent_HuntEntities6())
+                using (var db = new Talent_HuntEntities7())
                 {
                     var task = db.Task.FirstOrDefault(t => t.Id == id);
                     if (task == null)
@@ -240,7 +240,7 @@ namespace TalentHunt1.Controllers
         {
             try
             {
-                using (var db = new Talent_HuntEntities6())
+                using (var db = new Talent_HuntEntities7())
                 {
                     var submissions = (from s in db.Submission
                                        join u in db.Users on s.UserID equals u.Id
@@ -305,7 +305,7 @@ namespace TalentHunt1.Controllers
         {
             try
             {
-                using (var db = new Talent_HuntEntities6())
+                using (var db = new Talent_HuntEntities7())
                 {
                     // First check if user exists
                     var userExists = db.Users.Any(u => u.Id == userId);
@@ -1305,7 +1305,7 @@ namespace TalentHunt1.Controllers
         
         public HttpResponseMessage GetEventById(int eventid)
         {
-            using (var db = new Talent_HuntEntities6())
+            using (var db = new Talent_HuntEntities7())
             {
                 var ev = db.Event.FirstOrDefault(e => e.Id == eventid);
 
@@ -1408,7 +1408,7 @@ namespace TalentHunt1.Controllers
         {
             try
             {
-                using (var db = new Talent_HuntEntities6())
+                using (var db = new Talent_HuntEntities7())
                 {
                     // Step 1: Find CommitteeMemberID for the given userId
                     var committeeMember = db.CommitteeMember.FirstOrDefault(cm => cm.UserID == userId);
@@ -1864,7 +1864,7 @@ namespace TalentHunt1.Controllers
 
         [HttpPost]
      
-        public HttpResponseMessage AddMarks(int SubmissionID, int CommitteeMemberID, int Marks)
+        public HttpResponseMessage AddMarks(int SubmissionID, int CommitteeMemberID, int Marks)//, string feedback
         {
             try
             {
@@ -1872,7 +1872,8 @@ namespace TalentHunt1.Controllers
                 {
                     SubmissionID = SubmissionID,
                     CommitteeMemberID = CommitteeMemberID,
-                    Marks1 = Marks
+                    Marks1 = Marks,
+                    //Feedback = feedback
                 };
 
                 db.Marks.Add(mark);
