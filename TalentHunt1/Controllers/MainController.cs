@@ -1152,45 +1152,14 @@ namespace TalentHunt1.Controllers
         {
             try
             {
+                // Load event data with basic info
                 var eventReport = (from e in db.Event
                                    where e.Id == eventId
                                    select new
                                    {
                                        e.Title,
                                        e.EventDate,
-                                       ParticipantCount = db.Apply.Count(a => a.EventId == e.Id),
-
-                                       Submissions = (
-                                           from s in db.Submission
-                                           join t in db.Task on s.TaskID equals t.Id
-                                           join u in db.Users on s.UserID equals u.Id
-                                           join m in db.Marks on s.Id equals m.SubmissionID
-                                           where t.EventID == e.Id
-
-                                           // Group by student
-                                           group new { s, u, m } by new { u.Id, u.Name } into studentGroup
-
-                                           // Now within each student, group marks by EvaluatorId and take highest per evaluator
-                                           let evaluatorMarks = studentGroup
-                                               .GroupBy(x => x.m.CommitteeMemberID)
-                                               .Select(g => g.Max(x => x.m.Marks1)) // take max mark per evaluator
-
-                                           let avgMarks = evaluatorMarks.Average()
-                                           let committeeCount = evaluatorMarks.Count()
-
-                                           let firstSubmission = studentGroup.OrderBy(x => x.s.SubmissionTime).FirstOrDefault()
-
-                                           orderby avgMarks descending
-
-                                           select new
-                                           {
-                                               StudentName = studentGroup.Key.Name,
-                                               CommitteeEvaluators = committeeCount,
-                                               AverageMarks = avgMarks,
-                                               SubmissionTime = firstSubmission.s.SubmissionTime,
-                                               PathofSubmission = firstSubmission.s.PathofSubmission
-                                           }
-                                       ).ToList()
+                                       ParticipantCount = db.Apply.Count(a => a.EventId == e.Id)
                                    }).FirstOrDefault();
 
                 if (eventReport == null)
@@ -1198,13 +1167,103 @@ namespace TalentHunt1.Controllers
                     return Request.CreateResponse(HttpStatusCode.NotFound, "Event not found.");
                 }
 
-                return Request.CreateResponse(HttpStatusCode.OK, eventReport);
+                // Fetch related data first into memory
+                var allSubmissions = (from s in db.Submission
+                                      join t in db.Task on s.TaskID equals t.Id
+                                      join u in db.Users on s.UserID equals u.Id
+                                      join m in db.Marks on s.Id equals m.SubmissionID
+                                      where t.EventID == eventId
+                                      select new
+                                      {
+                                          StudentId = u.Id,
+                                          StudentName = u.Name,
+                                          Submission = s,
+                                          Task = t,
+                                          Mark = m
+                                      }).ToList(); // ✅ Materialize to memory
+
+                var allCommitteeMembers = db.CommitteeMember.ToList(); // to get names
+
+                // Group submissions by student
+                var submissionsGrouped = allSubmissions
+                    .GroupBy(x => new { x.StudentId, x.StudentName })
+                    .Select(studentGroup =>
+                    {
+                        var evaluatorMarks = studentGroup
+                            .GroupBy(x => x.Mark.CommitteeMemberID)
+                            .Select(g => g.Max(x => x.Mark.Marks1))
+                            .ToList();
+
+                        var avgMarks = evaluatorMarks.Any() ? evaluatorMarks.Average() : 0;
+                        var committeeCount = evaluatorMarks.Count;
+
+                        var firstSubmission = studentGroup
+                            .OrderBy(x => x.Submission.SubmissionTime)
+                            .FirstOrDefault();
+
+                        // Group by task for task-wise marks
+                        var taskMarks = studentGroup
+                            .GroupBy(x => new { x.Task.Id, x.Task.Description })
+                            .Select(taskGroup =>
+                            {
+                                var committeeMarks = taskGroup
+                                    .GroupBy(x => x.Mark.CommitteeMemberID)
+                                    .Select(cmGroup =>
+                                    {
+                                        var latestMark = cmGroup.OrderByDescending(x => x.Mark.Id).FirstOrDefault();
+
+                                        return new
+                                        {
+                                            CommitteeMemberId = cmGroup.Key,
+                                            CommitteeMemberName = allCommitteeMembers
+                                                .FirstOrDefault(cm => cm.Id == cmGroup.Key)?.Name ?? "Unknown",
+                                            Marks = latestMark.Mark.Marks1,
+                                            Feedback = latestMark.Mark.Feedback
+                                        };
+                                    }).ToList();
+
+                                return new
+                                {
+                                    TaskId = taskGroup.Key.Id,
+                                    TaskDescription = taskGroup.Key.Description,
+                                    CommitteeMarks = committeeMarks
+                                };
+                            }).ToList();
+
+                        return new
+                        {
+                            StudentId = studentGroup.Key.StudentId,
+                            StudentName = studentGroup.Key.StudentName,
+                            CommitteeEvaluators = committeeCount,
+                            AverageMarks = avgMarks,
+                            SubmissionTime = firstSubmission?.Submission.SubmissionTime,
+                            PathofSubmission = firstSubmission?.Submission.PathofSubmission,
+                            TaskMarks = taskMarks
+                        };
+                    })
+                    .OrderByDescending(x => x.AverageMarks)
+                    .ToList();
+
+                // Return full report
+                var result = new
+                {
+                    eventReport.Title,
+                    eventReport.EventDate,
+                    eventReport.ParticipantCount,
+                    Submissions = submissionsGrouped
+                };
+
+                return Request.CreateResponse(HttpStatusCode.OK, result);
             }
             catch (Exception ex)
             {
                 return Request.CreateResponse(HttpStatusCode.InternalServerError, ex.Message);
             }
         }
+
+
+
+
 
         [HttpGet]
         public HttpResponseMessage GetUserMarks(int userId)
@@ -2046,23 +2105,22 @@ namespace TalentHunt1.Controllers
 
                     // Get latest marks per committee member for this user's submissions
                     var committeeMarks = db.Marks
-     .Where(m => submissions.Contains(m.SubmissionID.Value))
-     .GroupBy(m => new { m.CommitteeMemberID, m.SubmissionID })
-     .Select(g => g.OrderByDescending(m => m.Id).FirstOrDefault())
-     .GroupBy(m => m.CommitteeMemberID)
-     .Select(g => g.OrderByDescending(m => m.Id).FirstOrDefault())
+     .Where(m => m.SubmissionID != null && submissions.Contains(m.SubmissionID.Value))
      .ToList();
 
-
-                    var committeeMarkDtos = (from m in committeeMarks
-                                             join cm in db.CommitteeMember on m.CommitteeMemberID equals cm.Id
-                                             select new CommitteeMarkDto
-                                             {
-                                                 CommitteeMemberId = cm.Id,
-                                                 CommitteeMemberName = cm.Name,
-                                                 LatestMarks = m.Marks1.Value,
-                                                 Feedback = m.Feedback
-                                             }).ToList();
+                    var committeeMarkDtos = committeeMarks
+                        .GroupBy(m => m.CommitteeMemberID)
+                        .Select(g => g.OrderByDescending(m => m.Id).FirstOrDefault())
+                        .Join(db.CommitteeMember,
+                            m => m.CommitteeMemberID,
+                            cm => cm.Id,
+                            (m, cm) => new CommitteeMarkDto
+                            {
+                                CommitteeMemberId = cm.Id,
+                                CommitteeMemberName = cm.Name,
+                                LatestMarks = m.Marks1.Value,
+                                Feedback = m.Feedback
+                            }).ToList();
 
                     result.Tasks.Add(new UserTaskMarksDto
                     {
@@ -2076,6 +2134,52 @@ namespace TalentHunt1.Controllers
             }
         }
 
+        [HttpGet]
+        public HttpResponseMessage GetMarksOneByOne(int taskid, int studentid)
+        {
+            try
+            {
+                // Get all submissions by this student for the given task
+                var submissionIds = db.Submission
+                    .Where(s => s.TaskID == taskid && s.UserID == studentid)
+                    .Select(s => s.Id)
+                    .ToList();
+
+                if (!submissionIds.Any())
+                {
+                    return Request.CreateResponse(HttpStatusCode.NotFound, "No submissions found for this student in this task.");
+                }
+
+                // Get latest marks per committee member for those submissions
+                var latestMarks = db.Marks
+                    .Where(m => m.SubmissionID != null && submissionIds.Contains(m.SubmissionID.Value))
+                    .GroupBy(m => m.CommitteeMemberID)
+                    .Select(g => g.OrderByDescending(m => m.Id).FirstOrDefault())
+                    .ToList();
+
+                // Build result with names
+                var result = latestMarks.Select(m => new
+                {
+                    TaskId = taskid,
+                    StudentId = studentid,
+                    CommitteeMemberId = m.CommitteeMemberID,
+                    CommitteeMemberName = db.CommitteeMember
+                        .Where(c => c.Id == m.CommitteeMemberID)
+                        .Select(c => c.Name)
+                        .FirstOrDefault(),
+                    Mark = m.Marks1,
+                    Feedback = m.Feedback
+                })
+                .OrderByDescending(x => x.Mark)
+                .ToList();
+
+                return Request.CreateResponse(HttpStatusCode.OK, result);
+            }
+            catch (Exception ex)
+            {
+                return Request.CreateResponse(HttpStatusCode.InternalServerError, ex.Message);
+            }
+        }
 
 
 
