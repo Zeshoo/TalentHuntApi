@@ -1985,8 +1985,96 @@ namespace TalentHunt1.Controllers
 
 
 
+        public class UserTaskMarksDto
+        {
+            public int TaskId { get; set; }
+            public string TaskDescription { get; set; }
+            public List<CommitteeMarkDto> CommitteeMarks { get; set; }
+        }
+
+        public class CommitteeMarkDto
+        {
+            public int CommitteeMemberId { get; set; }
+            public string CommitteeMemberName { get; set; }
+            public int LatestMarks { get; set; }
+            public string Feedback { get; set; }
+        }
+
+        public class EventTaskMarksResponse
+        {
+            public int EventId { get; set; }
+            public string EventTitle { get; set; }
+            public List<UserTaskMarksDto> Tasks { get; set; }
+        }
+
+        [HttpGet]
+       
+        public IHttpActionResult GetUserEventMarks(int userId, int eventId)
+        {
+            using (var db = new Talent_HuntEntities7())
+            {
+                // Check if user applied for this event
+                var isRegistered = db.Apply.Any(a => a.UserId == userId && a.EventId == eventId && a.status == "Accepted");
+                if (!isRegistered)
+                {
+                    return NotFound();
+                }
+
+                // Get the event
+                var eventData = db.Event.FirstOrDefault(e => e.Id == eventId);
+                if (eventData == null)
+                {
+                    return NotFound();
+                }
+
+                // Get all tasks in the event
+                var tasks = db.Task.Where(t => t.EventID == eventId).ToList();
+
+                var result = new EventTaskMarksResponse
+                {
+                    EventId = eventData.Id,
+                    EventTitle = eventData.Title,
+                    Tasks = new List<UserTaskMarksDto>()
+                };
+
+                foreach (var task in tasks)
+                {
+                    var submissions = db.Submission
+                        .Where(s => s.UserID == userId && s.TaskID == task.Id)
+                        .Select(s => s.Id)
+                        .ToList();
+
+                    // Get latest marks per committee member for this user's submissions
+                    var committeeMarks = db.Marks
+     .Where(m => submissions.Contains(m.SubmissionID.Value))
+     .GroupBy(m => new { m.CommitteeMemberID, m.SubmissionID })
+     .Select(g => g.OrderByDescending(m => m.Id).FirstOrDefault())
+     .GroupBy(m => m.CommitteeMemberID)
+     .Select(g => g.OrderByDescending(m => m.Id).FirstOrDefault())
+     .ToList();
 
 
+                    var committeeMarkDtos = (from m in committeeMarks
+                                             join cm in db.CommitteeMember on m.CommitteeMemberID equals cm.Id
+                                             select new CommitteeMarkDto
+                                             {
+                                                 CommitteeMemberId = cm.Id,
+                                                 CommitteeMemberName = cm.Name,
+                                                 LatestMarks = m.Marks1.Value,
+                                                 Feedback = m.Feedback
+                                             }).ToList();
+
+                    result.Tasks.Add(new UserTaskMarksDto
+                    {
+                        TaskId = task.Id,
+                        TaskDescription = task.Description,
+                        CommitteeMarks = committeeMarkDtos
+                    });
+                }
+
+                return Ok(result);
+            }
+        }
 
 
 
