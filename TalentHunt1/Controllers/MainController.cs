@@ -1923,7 +1923,7 @@ namespace TalentHunt1.Controllers
 
         [HttpPost]
      
-        public HttpResponseMessage AddMarks(int SubmissionID, int CommitteeMemberID, int Marks)//, string feedback
+        public HttpResponseMessage AddMarks(int SubmissionID, int CommitteeMemberID, int Marks,string feedback)// string feedback
         {
             try
             {
@@ -1932,7 +1932,7 @@ namespace TalentHunt1.Controllers
                     SubmissionID = SubmissionID,
                     CommitteeMemberID = CommitteeMemberID,
                     Marks1 = Marks,
-                    //Feedback = feedback
+                    Feedback = feedback
                 };
 
                 db.Marks.Add(mark);
